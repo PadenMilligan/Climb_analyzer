@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: climb-analyzer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd climb_analyzer && python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: PORT
+        value: 5000
+

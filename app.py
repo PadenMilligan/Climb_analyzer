@@ -104,4 +104,6 @@ def serve_video(timestamp, filename):
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    # Use PORT from environment variable (for cloud deployment) or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
