@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Climb Analyzer - Advanced Metrics</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 1rem;
+      max-width: 1400px;
+      margin: auto;
+      background: #f5f5f5;
+    }
+    /* Mobile optimizations for iPhone */
+    @media (max-width: 768px) {
+      body {
+        padding: 0.5rem;
+      }
+      .container {
+        padding: 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      .scores-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+      }
+      .score-card {
+        padding: 1rem;
+      }
+      .score-value {
+        font-size: 2rem;
+      }
+      .chart-container {
+        height: 250px;
+      }
+      video {
+        width: 100%;
+        height: auto;
+      }
+      input[type="file"] {
+        font-size: 16px; /* Prevents zoom on iOS */
+      }
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 0.5rem;
+    }
+    h2 {
+      color: #34495e;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+    h3 {
+      color: #7f8c8d;
+      margin-top: 1.5rem;
+    }
+    .tabs {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 1rem;
+      color: #7f8c8d;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+    .tab.active {
+      color: #3498db;
+      border-bottom-color: #3498db;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    video {
+      width: 100%;
+      max-width: 100%;
+      margin-top: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    input[type="file"] {
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      width: 100%;
+      border: 2px dashed #bdc3c7;
+      border-radius: 5px;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      margin-top: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+    .error {
+      color: #e74c3c;
+      padding: 1rem;
+      background: #fee;
+      border-radius: 5px;
+      margin: 1rem 0;
+    }
+    .success {
+      color: #27ae60;
+      padding: 1rem;
+      background: #efe;
+      border-radius: 5px;
+      margin: 1rem 0;
+    }
+    #progress-container {
+      display: none;
+      margin-top: 20px;
+    }
+    #progress-bar-wrapper {
+      background: #ecf0f1;
+      height: 25px;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3498db, #2ecc71);
+      transition: width 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+    }
+    .scores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+    .score-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .score-card.stability {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .score-card.balance {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .score-card.technique {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    .score-card.rhythm {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    .score-card.overall {
+      background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+      grid-column: 1 / -1;
+    }
+    .score-value {
+      font-size: 3rem;
+      font-weight: bold;
+      margin: 0.5rem 0;
+    }
+    .score-label {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 2rem 0;
+    }
+    .metrics-info {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    .metrics-info h4 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+    .metrics-info ul {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+    }
+    .metrics-info li {
+      margin: 0.5rem 0;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🧗 Climb Analyzer - Advanced Metrics</h1>
+    <p>Upload a climbing video to analyze technique, stability, balance, rhythm, and more!</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('single')">Single Video Analysis</button>
+      <button class="tab" onclick="switchTab('dual')">Dual Video Comparison</button>
+    </div>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if success %}
+      <div class="success">✅ Analysis complete! View results below.</div>
+    {% endif %}
+
+    <!-- Single Video Analysis Tab -->
+    <div id="single-tab" class="tab-content active">
+      <form method="POST" enctype="multipart/form-data" id="single-form">
+        <input type="hidden" name="analysis_type" value="single">
+        <label><strong>Upload Climbing Video:</strong></label><br>
+        <input type="file" name="video" accept="video/*" required><br>
+        <button type="submit" id="analyze-btn">Analyze Video</button>
+      </form>
+
+      <div id="progress-container">
+        <label>Processing video and calculating metrics...</label>
+        <div id="progress-bar-wrapper">
+          <div id="progress-bar">0%</div>
+        </div>
+      </div>
+
+      {% if success and analysis_type == 'single' and metrics_data %}
+        <h2>📊 Analysis Results</h2>
+        
+        <!-- Score Cards -->
+        <div class="scores-grid">
+          <div class="score-card stability">
+            <div class="score-label">Stability</div>
+            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_stability']) }}</div>
+            <div>/ 100</div>
+          </div>
+          <div class="score-card balance">
+            <div class="score-label">Balance</div>
+            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_balance']) }}</div>
+            <div>/ 100</div>
+          </div>
+          <div class="score-card technique">
+            <div class="score-label">Technique</div>
+            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_technique']) }}</div>
+            <div>/ 100</div>
+          </div>
+          <div class="score-card rhythm">
+            <div class="score-label">Rhythm</div>
+            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_rhythm']) }}</div>
+            <div>/ 100</div>
+          </div>
+          <div class="score-card overall">
+            <div class="score-label">Overall Performance Score</div>
+            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_overall_score']) }}</div>
+            <div>/ 100</div>
+          </div>
+        </div>
+
+        <!-- Metrics Info -->
+        <div class="metrics-info">
+          <h4>📈 Metrics Explained</h4>
+          <ul>
+            <li><strong>Stability:</strong> Measures consistency in hip position and smoothness of movement. Higher scores indicate more stable, controlled climbing.</li>
+            <li><strong>Balance:</strong> Evaluates weight distribution between left and right limbs. Balanced weight distribution improves efficiency.</li>
+            <li><strong>Technique:</strong> Analyzes body angle, knee positioning, and movement efficiency. Proper technique reduces energy expenditure.</li>
+            <li><strong>Rhythm:</strong> Measures consistency in movement timing and patterns. Good rhythm indicates efficient climbing flow.</li>
+            <li><strong>Hip-to-Wall Distance:</strong> Average distance of hips from the wall. Closer positioning generally improves leverage and efficiency.</li>
+          </ul>
+        </div>
+
+        <!-- Charts -->
+        <h3>Real-Time Metrics Over Time</h3>
+        <div class="chart-container">
+          <canvas id="metricsChart"></canvas>
+        </div>
+
+        <h3>Hip-to-Wall Distance Over Time</h3>
+        <div class="chart-container">
+          <canvas id="distanceChart"></canvas>
+        </div>
+
+        <h3>Analyzed Video</h3>
+        <video controls id="result-video">
+          <source src="{{ video_url }}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+
+        <script>
+          // Prepare data for charts
+          const metricsData = {{ metrics_data|tojson }};
+          const frameData = metricsData.frame_by_frame || [];
+          
+          const times = frameData.map(d => d.time);
+          const stability = frameData.map(d => d.stability);
+          const balance = frameData.map(d => d.balance);
+          const technique = frameData.map(d => d.technique);
+          const rhythm = frameData.map(d => d.rhythm);
+          const overall = frameData.map(d => d.overall_score);
+          const hipToWall = frameData.map(d => d.hip_to_wall);
+
+          // Main metrics chart
+          const ctx1 = document.getElementById('metricsChart').getContext('2d');
+          new Chart(ctx1, {
+            type: 'line',
+            data: {
+              labels: times,
+              datasets: [
+                {
+                  label: 'Stability',
+                  data: stability,
+                  borderColor: 'rgb(240, 147, 251)',
+                  backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: 'Balance',
+                  data: balance,
+                  borderColor: 'rgb(79, 172, 254)',
+                  backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: 'Technique',
+                  data: technique,
+                  borderColor: 'rgb(67, 233, 123)',
+                  backgroundColor: 'rgba(67, 233, 123, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: 'Rhythm',
+                  data: rhythm,
+                  borderColor: 'rgb(250, 112, 154)',
+                  backgroundColor: 'rgba(250, 112, 154, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: 'Overall Score',
+                  data: overall,
+                  borderColor: 'rgb(48, 207, 208)',
+                  backgroundColor: 'rgba(48, 207, 208, 0.1)',
+                  borderWidth: 3,
+                  tension: 0.4
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  max: 100,
+                  title: {
+                    display: true,
+                    text: 'Score (0-100)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Time (seconds)'
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top'
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false
+                }
+              }
+            }
+          });
+
+          // Hip-to-wall distance chart
+          const ctx2 = document.getElementById('distanceChart').getContext('2d');
+          new Chart(ctx2, {
+            type: 'line',
+            data: {
+              labels: times,
+              datasets: [{
+                label: 'Hip-to-Wall Distance (pixels)',
+                data: hipToWall,
+                borderColor: 'rgb(255, 165, 0)',
+                backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                tension: 0.4,
+                fill: true
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Distance (pixels)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Time (seconds)'
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top'
+                }
+              }
+            }
+          });
+
+          // Sync video playback with charts (optional enhancement)
+          const video = document.getElementById('result-video');
+          if (video) {
+            video.addEventListener('timeupdate', function() {
+              const currentTime = video.currentTime;
+              // Could highlight current time on charts here
+            });
+          }
+        </script>
+      {% endif %}
+    </div>
+
+    <!-- Dual Video Comparison Tab -->
+    <div id="dual-tab" class="tab-content">
+      <form method="POST" enctype="multipart/form-data" id="dual-form">
+        <input type="hidden" name="analysis_type" value="dual">
+        <label><strong>Climber 1 Video:</strong></label><br>
+        <input type="file" name="video1" accept="video/*" required><br>
+
+        <label><strong>Climber 2 Video:</strong></label><br>
+        <input type="file" name="video2" accept="video/*" required><br>
+
+        <button type="submit" id="compare-btn">Compare Videos</button>
+      </form>
+
+      <div id="progress-container">
+        <label>Processing videos...</label>
+        <div id="progress-bar-wrapper">
+          <div id="progress-bar">0%</div>
+        </div>
+      </div>
+
+      {% if success and analysis_type == 'dual' %}
+        <h3>✅ Comparison Video</h3>
+        <video controls>
+          <source src="{{ video_url }}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelectorAll('.tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Show selected tab
+      document.getElementById(tabName + '-tab').classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    // Progress bar simulation
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+      form.addEventListener('submit', () => {
+        const container = document.getElementById('progress-container');
+        const bar = document.getElementById('progress-bar');
+        container.style.display = 'block';
+        let width = 0;
+
+        const interval = setInterval(() => {
+          if (width >= 90) {
+            clearInterval(interval);
+            return;
+          }
+          width += Math.random() * 5;
+          bar.style.width = width + '%';
+          bar.textContent = Math.round(width) + '%';
+        }, 200);
+      });
+    });
+
+    // Hide progress bar when page loads with results
+    {% if success %}
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('progress-bar').style.width = '100%';
+      document.getElementById('progress-bar').textContent = '100%';
+    {% endif %}
+  </script>
+
+</body>
+</html>
