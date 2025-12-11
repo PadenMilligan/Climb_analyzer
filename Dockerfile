@@ -22,7 +22,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY climb_analyzer/ ./climb_analyzer/
-COPY static/ ./static/ 2>/dev/null || true
 
 # Create necessary directories
 RUN mkdir -p climb_analyzer/static/uploads climb_analyzer/static/results
@@ -36,5 +35,6 @@ ENV PYTHONUNBUFFERED=1
 
 # Run the application
 WORKDIR /app
-CMD ["python", "climb_analyzer/app.py"]
+# Change to climb_analyzer directory and run app.py
+CMD ["sh", "-c", "python app.py"]
 
