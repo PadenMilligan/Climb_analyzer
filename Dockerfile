@@ -33,8 +33,9 @@ EXPOSE 5000
 ENV FLASK_APP=climb_analyzer/app.py
 ENV PYTHONUNBUFFERED=1
 
+# Set working directory to climb_analyzer for the app
+WORKDIR /app/climb_analyzer
+
 # Run the application
-WORKDIR /app
-# Change to climb_analyzer directory and run app.py
-CMD ["sh", "-c", "python app.py"]
+CMD ["python", "app.py"]
 
