@@ -1,7 +1,0 @@
-flask>=2.0.0
-werkzeug>=2.0.0
-mediapipe
-opencv-python>=4.5.0
-numpy>=1.21.0
-matplotlib>=3.5.0
-
