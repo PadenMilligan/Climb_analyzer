@@ -4,11 +4,69 @@ import numpy as np
 import csv
 import os
 import json
+import time
+import subprocess
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from metrics_calculator import ClimbingMetricsCalculator
+
+def create_video_writer(output_path, fps, frame_width, frame_height):
+    """
+    Create a VideoWriter with H.264 codec optimized for web playback.
+    Prioritizes H.264 variants for maximum web browser compatibility.
+    Returns: (VideoWriter, actual_output_path, codec_used) or None if all fail
+    """
+    # For web playback, H.264 is essential. Try multiple H.264 variants first
+    # H.264 codecs (in order of preference for web compatibility)
+    h264_codecs = [
+        ('H264', 'H264'),  # H.264 (best for web, may have OpenH264 warning)
+        ('avc1', 'avc1'),  # H.264 alternative (AVC1 is the web standard)
+        ('X264', 'X264'),  # x264 encoder (if available)
+    ]
+    
+    # Fallback codecs (less web-compatible, will be re-encoded to H.264 later)
+    fallback_codecs = [
+        ('mp4v', 'mp4v'),  # MPEG-4 Part 2 (fallback)
+        ('XVID', 'XVID'),  # Xvid MPEG-4 (fallback)
+    ]
+    
+    # Try H.264 codecs first
+    for codec_name, fourcc_str in h264_codecs:
+        fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
+        out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+        if out.isOpened():
+            print(f"[DEBUG] Using H.264 codec: {codec_name} (web-optimized)")
+            return (out, output_path, codec_name)
+        else:
+            out.release()
+    
+    # Try fallback codecs if H.264 fails
+    for codec_name, fourcc_str in fallback_codecs:
+        fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
+        out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+        if out.isOpened():
+            print(f"[WARNING] Using fallback codec: {codec_name} (will be converted to H.264 for web)")
+            return (out, output_path, codec_name)
+        else:
+            out.release()
+    
+    # If all codecs fail, try with .avi extension as fallback
+    if output_path.endswith('.mp4'):
+        avi_path = output_path.replace('.mp4', '.avi')
+        print(f"[WARNING] MP4 codecs failed, trying AVI format: {avi_path}")
+        all_codecs = h264_codecs + fallback_codecs
+        for codec_name, fourcc_str in all_codecs:
+            fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
+            out = cv2.VideoWriter(avi_path, fourcc, fps, (frame_width, frame_height))
+            if out.isOpened():
+                print(f"[DEBUG] Using codec: {codec_name} with AVI format (will be converted to H.264 MP4)")
+                return (out, avi_path, codec_name)
+            else:
+                out.release()
+    
+    return None
 
 def create_graph_overlay(metrics_history, frame_width=None, frame_height=None):
     """
@@ -221,16 +279,12 @@ def process_climber_videos(path1, path2, output_folder):
     csv1_path = os.path.abspath(os.path.join(output_folder, "climber1_log.csv"))
     csv2_path = os.path.abspath(os.path.join(output_folder, "climber2_log.csv"))
 
-    out = cv2.VideoWriter(
-        video_output_path,
-        cv2.VideoWriter_fourcc(*'avc1'),  # Alternative: 'XVID' or 'mp4v'
-        fps,
-        (frame_width * 2, frame_height)
-    )
-
-    if not out.isOpened():
+    result = create_video_writer(video_output_path, fps, frame_width * 2, frame_height)
+    if result is None:
         print(f"[ERROR] Failed to open VideoWriter. Check codec or output path.")
         return None
+    
+    out, video_output_path, codec_used = result
 
     csv1 = open(csv1_path, "w", newline="")
     csv2 = open(csv2_path, "w", newline="")
@@ -308,10 +362,12 @@ def analyze_single_video(video_path, output_folder):
     Analyze a single climbing video with advanced metrics.
     Returns path to output video and metrics JSON file.
     """
-    print(f"[DEBUG] Analyzing video: {video_path}")
-    print(f"[DEBUG] Output folder: {output_folder}")
+    print(f"[1/7] 📹 Starting video analysis...")
+    print(f"     Video: {video_path}")
+    print(f"     Output: {output_folder}")
     
     # Setup MediaPipe Pose
+    print(f"[2/7] 🤖 Initializing MediaPipe pose detection...")
     mp_pose = mp.solutions.pose
     pose = mp_pose.Pose()
     mp_drawing = mp.solutions.drawing_utils
@@ -320,11 +376,16 @@ def analyze_single_video(video_path, output_folder):
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration = total_frames / fps if fps > 0 else 0
+    
+    print(f"     Video info: {frame_width}x{frame_height} @ {fps:.2f} fps, {total_frames} frames ({duration:.1f}s)")
     
     # Initialize metrics calculator
     metrics_calc = ClimbingMetricsCalculator(fps=fps)
     
     # Detect takeoff
+    print(f"[3/7] 🚀 Detecting climb start (takeoff)...")
     def detect_takeoff(cap, pose_instance):
         hip_y_positions = []
         frame_count = 0
@@ -352,23 +413,22 @@ def analyze_single_video(video_path, output_folder):
         return 0
     
     takeoff_frame = detect_takeoff(cv2.VideoCapture(video_path), pose)
-    print(f"[DEBUG] Takeoff frame: {takeoff_frame}")
+    print(f"     Takeoff detected at frame {takeoff_frame} ({takeoff_frame/fps:.2f}s)")
     
     cap.set(cv2.CAP_PROP_POS_FRAMES, takeoff_frame)
     
     video_output_path = os.path.abspath(os.path.join(output_folder, "analyzed_output.mp4"))
     metrics_json_path = os.path.abspath(os.path.join(output_folder, "metrics.json"))
     
-    out = cv2.VideoWriter(
-        video_output_path,
-        cv2.VideoWriter_fourcc(*'avc1'),
-        fps,
-        (frame_width, frame_height)
-    )
-    
-    if not out.isOpened():
+    print(f"[4/7] 🎬 Setting up video writer...")
+    result = create_video_writer(video_output_path, fps, frame_width, frame_height)
+    if result is None:
         print(f"[ERROR] Failed to open VideoWriter.")
         return None, None
+    
+    out, video_output_path, codec_used = result
+    print(f"     Output video: {os.path.basename(video_output_path)}")
+    print(f"     Codec: {codec_used}")
     
     # CSV for detailed metrics
     csv_path = os.path.abspath(os.path.join(output_folder, "metrics_log.csv"))
@@ -388,11 +448,23 @@ def analyze_single_video(video_path, output_folder):
     
     prev_hip = None
     frame_idx = 0
+    frames_to_process = total_frames - takeoff_frame
+    last_progress = -1
+    
+    print(f"[5/7] 📊 Processing frames and calculating metrics...")
+    print(f"     Processing {frames_to_process} frames...")
     
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
+        
+        # Progress reporting every 10%
+        if frames_to_process > 0:
+            progress = int((frame_idx / frames_to_process) * 100)
+            if progress != last_progress and progress % 10 == 0:
+                print(f"     Progress: {progress}% ({frame_idx}/{frames_to_process} frames)")
+                last_progress = progress
         
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = pose.process(image_rgb)
@@ -511,10 +583,44 @@ def analyze_single_video(video_path, output_folder):
         out.write(frame)
         frame_idx += 1
     
+    print(f"     ✓ Processed {frame_idx} frames")
+    
+    # Close video writer and ensure file is flushed
     cap.release()
     out.release()
     csv_file.close()
     
+    # Ensure video file is fully written to disk before returning
+    print(f"[6/7] 📈 Finalizing video file...")
+    if os.path.exists(video_output_path):
+        # Wait for file system to sync and verify file is stable
+        max_wait = 3  # Maximum seconds to wait
+        wait_interval = 0.1
+        waited = 0
+        stable_count = 0
+        last_size = 0
+        
+        while waited < max_wait:
+            current_size = os.path.getsize(video_output_path)
+            if current_size == last_size and current_size > 0:
+                stable_count += 1
+                if stable_count >= 3:  # File size stable for 0.3 seconds
+                    break
+            else:
+                stable_count = 0
+            last_size = current_size
+            time.sleep(wait_interval)
+            waited += wait_interval
+        
+        final_size = os.path.getsize(video_output_path)
+        if final_size > 0:
+            print(f"     ✓ Video file finalized ({final_size / (1024*1024):.2f} MB)")
+        else:
+            print(f"     ⚠️ Warning: Video file exists but size is 0")
+    else:
+        print(f"     ❌ Error: Video file not found after writing")
+    
+    print(f"[6/7] 📈 Calculating average metrics...")
     # Calculate average scores
     if all_metrics:
         def safe_mean(values):
@@ -555,10 +661,110 @@ def analyze_single_video(video_path, output_folder):
     
     cv2.destroyAllWindows()
     
+    print(f"[7/7] 💾 Saving results...")
     if os.path.exists(video_output_path):
-        print(f"[✅] Analysis complete. Video: {video_output_path}")
-        print(f"[✅] Metrics saved: {metrics_json_path}")
+        file_size_mb = os.path.getsize(video_output_path) / (1024 * 1024)
+        
+        # Always optimize video for web playback - ensure H.264 encoding
+        if video_output_path.endswith(('.mp4', '.avi')):
+            print(f"     Optimizing video for web playback (H.264)...")
+            optimized_path = optimize_video_for_web(video_output_path, codec_used)
+            if optimized_path and optimized_path != video_output_path:
+                # Replace original with optimized version
+                try:
+                    os.replace(optimized_path, video_output_path)
+                    new_size = os.path.getsize(video_output_path) / (1024 * 1024)
+                    print(f"     ✓ Video optimized to H.264 ({file_size_mb:.2f} MB → {new_size:.2f} MB)")
+                except Exception as e:
+                    print(f"     ⚠️ Could not replace with optimized version: {e}")
+                    # Keep original
+            elif optimized_path:
+                print(f"     ✓ Video already H.264 optimized")
+            else:
+                if codec_used in ['H264', 'avc1', 'X264']:
+                    print(f"     ✓ Video already encoded as H.264 ({codec_used})")
+                else:
+                    print(f"     ⚠️ Video optimization skipped (ffmpeg not available). Video may not play optimally in browsers.")
+        
+        print(f"[✅] Analysis complete!")
+        print(f"     Video: {os.path.basename(video_output_path)} ({os.path.getsize(video_output_path) / (1024 * 1024):.2f} MB)")
+        print(f"     Metrics: {os.path.basename(metrics_json_path)}")
+        print(f"     Average scores - Stability: {avg_metrics['avg_stability']:.1f}, "
+              f"Balance: {avg_metrics['avg_balance']:.1f}, "
+              f"Technique: {avg_metrics['avg_technique']:.1f}, "
+              f"Rhythm: {avg_metrics['avg_rhythm']:.1f}, "
+              f"Overall: {avg_metrics['avg_overall_score']:.1f}")
         return video_output_path, metrics_json_path
     else:
-        print(f"[❌] Analysis failed.")
+        print(f"[❌] Analysis failed - video file not found.")
         return None, None
+
+def optimize_video_for_web(video_path, original_codec=None):
+    """
+    Optimize video for web playback by ensuring H.264 encoding and faststart.
+    Uses ffmpeg to:
+    1. Convert to H.264 codec (if not already)
+    2. Move moov atom to beginning (faststart) for streaming
+    3. Optimize for web browsers
+    
+    Returns optimized path or original path if optimization fails.
+    """
+    try:
+        # Check if ffmpeg is available
+        result = subprocess.run(['ffmpeg', '-version'], 
+                              capture_output=True, 
+                              timeout=2)
+        if result.returncode != 0:
+            return video_path  # ffmpeg not available
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return video_path  # ffmpeg not found or timeout
+    
+    try:
+        # Create temporary output path
+        temp_path = video_path + '.optimized.mp4'
+        
+        # Build ffmpeg command optimized for mobile/web streaming
+        # Use lower bitrate and optimized settings for smooth mobile playback
+        cmd = [
+            'ffmpeg', 
+            '-i', video_path,
+            '-c:v', 'libx264',           # H.264 codec (best for web/mobile)
+            '-preset', 'medium',        # Balanced encoding speed/quality
+            '-crf', '28',               # Higher CRF = lower bitrate (better for mobile)
+            '-maxrate', '2M',           # Maximum bitrate (2 Mbps for mobile)
+            '-bufsize', '4M',           # Buffer size (2x maxrate for smooth streaming)
+            '-profile:v', 'baseline',   # Baseline profile (best mobile compatibility)
+            '-level', '3.1',            # Level 3.1 (widely supported on mobile)
+            '-pix_fmt', 'yuv420p',      # Pixel format (required for compatibility)
+            '-movflags', '+faststart',  # Move metadata to beginning (enables streaming)
+            '-tune', 'fastdecode',      # Optimize for fast decoding (mobile)
+            '-g', '30',                 # GOP size (keyframe every 30 frames)
+            '-y',                       # Overwrite output
+            temp_path
+        ]
+        
+        # Only add audio encoding if source has audio
+        # For now, we'll skip audio re-encoding to avoid issues
+        # cmd.extend(['-c:a', 'aac', '-b:a', '128k'])
+        
+        print(f"     Converting to H.264 with mobile/web optimization (2 Mbps max bitrate)...")
+        result = subprocess.run(cmd, capture_output=True, timeout=600)
+        
+        if result.returncode == 0 and os.path.exists(temp_path):
+            file_size = os.path.getsize(temp_path)
+            if file_size > 0:
+                print(f"     ✓ H.264 conversion successful")
+                return temp_path
+            else:
+                print(f"     ⚠️ Optimized file is empty")
+                return video_path
+        else:
+            error_msg = result.stderr.decode() if result.stderr else "Unknown error"
+            print(f"     ⚠️ ffmpeg optimization failed: {error_msg[:200]}")
+            return video_path
+    except subprocess.TimeoutExpired:
+        print(f"     ⚠️ Video optimization timed out")
+        return video_path
+    except Exception as e:
+        print(f"     ⚠️ Video optimization error: {e}")
+        return video_path

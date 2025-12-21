@@ -263,8 +263,82 @@
         </div>
       </div>
 
-      {% if success and analysis_type == 'single' and metrics_data %}
+      {% if success and analysis_type == 'single' %}
         <h2>📊 Analysis Results</h2>
+        
+        {% if video_url %}
+        <h3>Analyzed Video</h3>
+        <video controls id="result-video" preload="auto" playsinline webkit-playsinline style="max-width: 100%;" crossorigin="anonymous">
+          <source src="{{ video_url }}" type="{{ video_type|default('video/mp4') }}">
+          Your browser does not support the video tag.
+        </video>
+        <p style="color: #7f8c8d; font-size: 0.9rem; margin-top: 0.5rem;">
+          If the video doesn't play, try downloading it directly: <a href="{{ video_url }}" download>Download Video</a>
+        </p>
+        <script>
+          // Video playback event handlers (always run if video exists)
+          (function() {
+            const video = document.getElementById('result-video');
+            if (video) {
+              // Error handling with detailed error info
+              video.addEventListener('error', function(e) {
+                const error = video.error;
+                let errorMsg = 'Video playback error. ';
+                if (error) {
+                  switch(error.code) {
+                    case error.MEDIA_ERR_ABORTED:
+                      errorMsg += 'Video loading aborted.';
+                      break;
+                    case error.MEDIA_ERR_NETWORK:
+                      errorMsg += 'Network error while loading video.';
+                      break;
+                    case error.MEDIA_ERR_DECODE:
+                      errorMsg += 'Video decoding error. The file may be corrupted or use an unsupported codec.';
+                      break;
+                    case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                      errorMsg += 'Video format not supported by your browser.';
+                      break;
+                    default:
+                      errorMsg += 'Unknown error.';
+                  }
+                  console.error('Video error code:', error.code, 'Message:', errorMsg);
+                }
+                const errorElement = document.createElement('p');
+                errorElement.style.color = '#e74c3c';
+                errorElement.style.marginTop = '10px';
+                errorElement.innerHTML = errorMsg + ' <a href="{{ video_url }}" download style="color: #3498db;">Download video instead</a>';
+                video.parentNode.appendChild(errorElement);
+              });
+              
+              // Metadata loaded
+              video.addEventListener('loadedmetadata', function() {
+                console.log('Video metadata loaded. Duration:', video.duration, 'seconds');
+                console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                console.log('Video ready state:', video.readyState);
+              });
+              
+              // Can play
+              video.addEventListener('canplay', function() {
+                console.log('Video can start playing');
+              });
+              
+              // Loading progress
+              video.addEventListener('progress', function() {
+                if (video.buffered.length > 0) {
+                  const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                  const duration = video.duration;
+                  if (duration > 0) {
+                    const percentLoaded = (bufferedEnd / duration) * 100;
+                    console.log('Video buffered:', percentLoaded.toFixed(1) + '%');
+                  }
+                }
+              });
+            }
+          })();
+        </script>
+        {% endif %}
+        
+        {% if metrics_data %}
         
         <!-- Score Cards -->
         <div class="scores-grid">
@@ -318,153 +392,171 @@
           <canvas id="distanceChart"></canvas>
         </div>
 
-        <h3>Analyzed Video</h3>
-        <video controls id="result-video">
-          <source src="{{ video_url }}" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
-
         <script>
           // Prepare data for charts
-          const metricsData = {{ metrics_data|tojson }};
-          const frameData = metricsData.frame_by_frame || [];
-          
-          const times = frameData.map(d => d.time);
-          const stability = frameData.map(d => d.stability);
-          const balance = frameData.map(d => d.balance);
-          const technique = frameData.map(d => d.technique);
-          const rhythm = frameData.map(d => d.rhythm);
-          const overall = frameData.map(d => d.overall_score);
-          const hipToWall = frameData.map(d => d.hip_to_wall);
+          try {
+            const metricsData = {{ metrics_data|tojson }};
+            if (!metricsData) {
+              console.error('Metrics data is missing');
+              document.getElementById('metricsChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error: Metrics data not available</p>';
+              document.getElementById('distanceChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error: Metrics data not available</p>';
+            } else {
+              const frameData = metricsData.frame_by_frame || [];
+              
+              if (frameData.length === 0) {
+                console.warn('No frame data available');
+                document.getElementById('metricsChart').parentElement.innerHTML = '<p style="color: #f39c12;">No frame-by-frame data available</p>';
+                document.getElementById('distanceChart').parentElement.innerHTML = '<p style="color: #f39c12;">No frame-by-frame data available</p>';
+              } else {
+                const times = frameData.map(d => d.time);
+                const stability = frameData.map(d => d.stability);
+                const balance = frameData.map(d => d.balance);
+                const technique = frameData.map(d => d.technique);
+                const rhythm = frameData.map(d => d.rhythm);
+                const overall = frameData.map(d => d.overall_score);
+                const hipToWall = frameData.map(d => d.hip_to_wall);
 
-          // Main metrics chart
-          const ctx1 = document.getElementById('metricsChart').getContext('2d');
-          new Chart(ctx1, {
-            type: 'line',
-            data: {
-              labels: times,
-              datasets: [
-                {
-                  label: 'Stability',
-                  data: stability,
-                  borderColor: 'rgb(240, 147, 251)',
-                  backgroundColor: 'rgba(240, 147, 251, 0.1)',
-                  tension: 0.4
-                },
-                {
-                  label: 'Balance',
-                  data: balance,
-                  borderColor: 'rgb(79, 172, 254)',
-                  backgroundColor: 'rgba(79, 172, 254, 0.1)',
-                  tension: 0.4
-                },
-                {
-                  label: 'Technique',
-                  data: technique,
-                  borderColor: 'rgb(67, 233, 123)',
-                  backgroundColor: 'rgba(67, 233, 123, 0.1)',
-                  tension: 0.4
-                },
-                {
-                  label: 'Rhythm',
-                  data: rhythm,
-                  borderColor: 'rgb(250, 112, 154)',
-                  backgroundColor: 'rgba(250, 112, 154, 0.1)',
-                  tension: 0.4
-                },
-                {
-                  label: 'Overall Score',
-                  data: overall,
-                  borderColor: 'rgb(48, 207, 208)',
-                  backgroundColor: 'rgba(48, 207, 208, 0.1)',
-                  borderWidth: 3,
-                  tension: 0.4
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  max: 100,
-                  title: {
-                    display: true,
-                    text: 'Score (0-100)'
+                // Main metrics chart
+                const ctx1 = document.getElementById('metricsChart').getContext('2d');
+                new Chart(ctx1, {
+                  type: 'line',
+                  data: {
+                    labels: times,
+                    datasets: [
+                      {
+                        label: 'Stability',
+                        data: stability,
+                        borderColor: 'rgb(240, 147, 251)',
+                        backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                        tension: 0.4
+                      },
+                      {
+                        label: 'Balance',
+                        data: balance,
+                        borderColor: 'rgb(79, 172, 254)',
+                        backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                        tension: 0.4
+                      },
+                      {
+                        label: 'Technique',
+                        data: technique,
+                        borderColor: 'rgb(67, 233, 123)',
+                        backgroundColor: 'rgba(67, 233, 123, 0.1)',
+                        tension: 0.4
+                      },
+                      {
+                        label: 'Rhythm',
+                        data: rhythm,
+                        borderColor: 'rgb(250, 112, 154)',
+                        backgroundColor: 'rgba(250, 112, 154, 0.1)',
+                        tension: 0.4
+                      },
+                      {
+                        label: 'Overall Score',
+                        data: overall,
+                        borderColor: 'rgb(48, 207, 208)',
+                        backgroundColor: 'rgba(48, 207, 208, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4
+                      }
+                    ]
+                  },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                          display: true,
+                          text: 'Score (0-100)'
+                        }
+                      },
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Time (seconds)'
+                        }
+                      }
+                    },
+                    plugins: {
+                      legend: {
+                        display: true,
+                        position: 'top'
+                      },
+                      tooltip: {
+                        mode: 'index',
+                        intersect: false
+                      }
+                    }
                   }
-                },
-                x: {
-                  title: {
-                    display: true,
-                    text: 'Time (seconds)'
+                });
+
+                // Hip-to-wall distance chart
+                const ctx2 = document.getElementById('distanceChart').getContext('2d');
+                new Chart(ctx2, {
+                  type: 'line',
+                  data: {
+                    labels: times,
+                    datasets: [{
+                      label: 'Hip-to-Wall Distance (pixels)',
+                      data: hipToWall,
+                      borderColor: 'rgb(255, 165, 0)',
+                      backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                      tension: 0.4,
+                      fill: true
+                    }]
+                  },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        title: {
+                          display: true,
+                          text: 'Distance (pixels)'
+                        }
+                      },
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Time (seconds)'
+                        }
+                      }
+                    },
+                    plugins: {
+                      legend: {
+                        display: true,
+                        position: 'top'
+                      }
+                    }
                   }
-                }
-              },
-              plugins: {
-                legend: {
-                  display: true,
-                  position: 'top'
-                },
-                tooltip: {
-                  mode: 'index',
-                  intersect: false
-                }
+                });
               }
             }
-          });
-
-          // Hip-to-wall distance chart
-          const ctx2 = document.getElementById('distanceChart').getContext('2d');
-          new Chart(ctx2, {
-            type: 'line',
-            data: {
-              labels: times,
-              datasets: [{
-                label: 'Hip-to-Wall Distance (pixels)',
-                data: hipToWall,
-                borderColor: 'rgb(255, 165, 0)',
-                backgroundColor: 'rgba(255, 165, 0, 0.1)',
-                tension: 0.4,
-                fill: true
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Distance (pixels)'
-                  }
-                },
-                x: {
-                  title: {
-                    display: true,
-                    text: 'Time (seconds)'
-                  }
-                }
-              },
-              plugins: {
-                legend: {
-                  display: true,
-                  position: 'top'
-                }
-              }
-            }
-          });
+          } catch (error) {
+            console.error('Error creating charts:', error);
+            document.getElementById('metricsChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error loading charts: ' + error.message + '</p>';
+            document.getElementById('distanceChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error loading charts: ' + error.message + '</p>';
+          }
 
           // Sync video playback with charts (optional enhancement)
-          const video = document.getElementById('result-video');
-          if (video) {
-            video.addEventListener('timeupdate', function() {
-              const currentTime = video.currentTime;
+          const videoForCharts = document.getElementById('result-video');
+          if (videoForCharts) {
+            videoForCharts.addEventListener('timeupdate', function() {
+              const currentTime = videoForCharts.currentTime;
               // Could highlight current time on charts here
             });
           }
         </script>
+        {% else %}
+        <div class="error">
+          <p>⚠️ Metrics data is missing. The video was processed but metrics could not be loaded.</p>
+          <p>Please check the server logs for more information.</p>
+        </div>
+        {% endif %}
       {% endif %}
     </div>
 
