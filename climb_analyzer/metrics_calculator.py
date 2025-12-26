@@ -194,4 +194,35 @@ class ClimbingMetricsCalculator:
             rhythm * 0.20
         )
         return min(100, max(0, overall))
+    
+    def calculate_hip_speed(self, landmarks, frame_width, frame_height, prev_hip_pos=None):
+        """
+        Calculate the speed of hip movement.
+        Returns: (hip_speed_px_per_sec, current_hip_center_position)
+        """
+        try:
+            mp_pose = mp.solutions.pose
+            left_hip = landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP.value]
+            right_hip = landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP.value]
+            
+            # Calculate hip center
+            hip_x = (left_hip.x + right_hip.x) / 2
+            hip_y = (left_hip.y + right_hip.y) / 2
+            
+            # Convert to pixel coordinates
+            hip_center = np.array([
+                hip_x * frame_width,
+                hip_y * frame_height
+            ])
+            
+            # Calculate speed if we have previous position
+            if prev_hip_pos is not None:
+                displacement = np.linalg.norm(hip_center - prev_hip_pos)
+                speed = displacement * self.fps
+            else:
+                speed = 0.0
+            
+            return speed, hip_center
+        except:
+            return 0.0, None
 

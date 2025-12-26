@@ -473,18 +473,20 @@ def analyze_single_video(video_path, output_folder):
         
         if results.pose_landmarks:
             lm = results.pose_landmarks.landmark
+            
+            # Calculate hip speed using metrics calculator
+            hip_speed, curr_hip = metrics_calc.calculate_hip_speed(
+                results.pose_landmarks, frame_width, frame_height, prev_hip
+            )
+            
+            # Get hip center for display (convert back to pixel coordinates)
             lh = lm[mp_pose.PoseLandmark.LEFT_HIP]
             rh = lm[mp_pose.PoseLandmark.RIGHT_HIP]
             cx = int((lh.x + rh.x) / 2 * frame_width)
             cy = int((lh.y + rh.y) / 2 * frame_height)
-            curr_hip = np.array([cx, cy])
             
-            # Calculate speed
-            if prev_hip is not None:
-                displacement = np.linalg.norm(curr_hip - prev_hip)
-                speed = displacement * fps
-            else:
-                speed = 0.0
+            # Use speed from metrics calculator
+            speed = hip_speed
             
             # Calculate all metrics
             hip_to_wall = metrics_calc.calculate_hip_to_wall_distance(
@@ -504,6 +506,7 @@ def analyze_single_video(video_path, output_folder):
             metrics_data = {
                 "frame": frame_idx,
                 "time": time_sec,
+                "hip_speed": round(hip_speed, 2),
                 "hip_to_wall": round(hip_to_wall, 2),
                 "stability": round(stability, 2),
                 "balance": round(balance, 2),
@@ -521,7 +524,7 @@ def analyze_single_video(video_path, output_folder):
             
             # Write to CSV
             csv_writer.writerow([
-                frame_idx, time_sec, cx, cy, round(speed, 2),
+                frame_idx, time_sec, cx, cy, round(hip_speed, 2),
                 round(hip_to_wall, 2), round(stability, 2),
                 round(balance, 2), round(technique, 2),
                 round(rhythm, 2), round(overall_score, 2)
@@ -547,6 +550,9 @@ def analyze_single_video(video_path, output_folder):
             cv2.putText(frame, f"Overall: {overall_score:.1f}", (10, y_offset),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
             y_offset += 30
+            cv2.putText(frame, f"Hip Speed: {hip_speed:.1f} px/s", (10, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            y_offset += 25
             cv2.putText(frame, f"Hip-to-Wall: {hip_to_wall:.1f}px", (10, y_offset),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 165, 0), 2)
             
@@ -564,6 +570,7 @@ def analyze_single_video(video_path, output_folder):
             all_metrics.append({
                 "frame": frame_idx,
                 "time": time_sec,
+                "hip_speed": 0,
                 "hip_to_wall": 0,
                 "stability": 0,
                 "balance": 0,
@@ -571,6 +578,7 @@ def analyze_single_video(video_path, output_folder):
                 "rhythm": 0,
                 "overall_score": 0
             })
+            prev_hip = None
         
         # Overlay radar chart even if no pose detected (use previous history)
         if len(metrics_history) >= 1:
@@ -633,7 +641,8 @@ def analyze_single_video(video_path, output_folder):
             "avg_technique": safe_mean([m["technique"] for m in all_metrics]),
             "avg_rhythm": safe_mean([m["rhythm"] for m in all_metrics]),
             "avg_overall_score": safe_mean([m["overall_score"] for m in all_metrics]),
-            "avg_hip_to_wall": safe_mean([m["hip_to_wall"] for m in all_metrics])
+            "avg_hip_to_wall": safe_mean([m["hip_to_wall"] for m in all_metrics]),
+            "avg_hip_speed": safe_mean([m["hip_speed"] for m in all_metrics])
         }
     else:
         avg_metrics = {
@@ -642,7 +651,8 @@ def analyze_single_video(video_path, output_folder):
             "avg_technique": 0.0,
             "avg_rhythm": 0.0,
             "avg_overall_score": 0.0,
-            "avg_hip_to_wall": 0.0
+            "avg_hip_to_wall": 0.0,
+            "avg_hip_speed": 0.0
         }
     
     # Save metrics to JSON

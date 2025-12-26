@@ -272,6 +272,21 @@
           <source src="{{ video_url }}" type="{{ video_type|default('video/mp4') }}">
           Your browser does not support the video tag.
         </video>
+        <div style="margin-top: 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+          <label for="playback-speed" style="font-weight: bold; color: #2c3e50;">Playback Speed:</label>
+          <select id="playback-speed" style="padding: 0.5rem 1rem; border: 2px solid #bdc3c7; border-radius: 5px; font-size: 1rem; background: white; cursor: pointer;">
+            <option value="0.25">0.25x (Slow Motion)</option>
+            <option value="0.5">0.5x (Half Speed)</option>
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1x (Normal)</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2x (Fast)</option>
+          </select>
+          <button id="slow-motion-btn" style="padding: 0.5rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">
+            Toggle Slow Motion (0.5x)
+          </button>
+        </div>
         <p style="color: #7f8c8d; font-size: 0.9rem; margin-top: 0.5rem;">
           If the video doesn't play, try downloading it directly: <a href="{{ video_url }}" download>Download Video</a>
         </p>
@@ -279,6 +294,36 @@
           // Video playback event handlers (always run if video exists)
           (function() {
             const video = document.getElementById('result-video');
+            const speedSelect = document.getElementById('playback-speed');
+            const slowMotionBtn = document.getElementById('slow-motion-btn');
+            let isSlowMotion = false;
+            
+            if (video && speedSelect) {
+              // Playback speed control
+              speedSelect.addEventListener('change', function() {
+                const speed = parseFloat(this.value);
+                video.playbackRate = speed;
+                console.log('Playback speed set to:', speed + 'x');
+              });
+              
+              // Slow motion toggle button
+              if (slowMotionBtn) {
+                slowMotionBtn.addEventListener('click', function() {
+                  if (isSlowMotion) {
+                    video.playbackRate = 1.0;
+                    speedSelect.value = '1';
+                    this.textContent = 'Toggle Slow Motion (0.5x)';
+                    isSlowMotion = false;
+                  } else {
+                    video.playbackRate = 0.5;
+                    speedSelect.value = '0.5';
+                    this.textContent = 'Toggle Normal Speed (1x)';
+                    isSlowMotion = true;
+                  }
+                });
+              }
+            }
+            
             if (video) {
               // Error handling with detailed error info
               video.addEventListener('error', function(e) {
