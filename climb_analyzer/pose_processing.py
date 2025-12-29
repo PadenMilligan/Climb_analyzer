@@ -709,7 +709,7 @@ def analyze_single_video(video_path, output_folder):
         print(f"[❌] Analysis failed - video file not found.")
         return None, None
 
-def optimize_video_for_web(video_path, original_codec=None):
+def optimize_video_for_web(video_path, original_codec=None):  # pylint: disable=unused-argument
     """
     Optimize video for web playback by ensuring H.264 encoding and faststart.
     Uses ffmpeg to:
@@ -734,21 +734,25 @@ def optimize_video_for_web(video_path, original_codec=None):
         temp_path = video_path + '.optimized.mp4'
         
         # Build ffmpeg command optimized for mobile/web streaming
-        # Use lower bitrate and optimized settings for smooth mobile playback
+        # Aggressive compression for smooth mobile playback on longer videos
         cmd = [
             'ffmpeg', 
             '-i', video_path,
             '-c:v', 'libx264',           # H.264 codec (best for web/mobile)
-            '-preset', 'medium',        # Balanced encoding speed/quality
-            '-crf', '28',               # Higher CRF = lower bitrate (better for mobile)
-            '-maxrate', '2M',           # Maximum bitrate (2 Mbps for mobile)
-            '-bufsize', '4M',           # Buffer size (2x maxrate for smooth streaming)
+            '-preset', 'fast',           # Faster encoding (still good quality)
+            '-crf', '30',                # Higher CRF = lower bitrate (30 is good balance)
+            '-maxrate', '1.5M',          # Maximum bitrate (1.5 Mbps for better mobile streaming)
+            '-bufsize', '3M',            # Buffer size (2x maxrate for smooth streaming)
+            '-vf', 'scale=-2:720',      # Scale to max 720p height (maintains aspect ratio, reduces file size)
             '-profile:v', 'baseline',   # Baseline profile (best mobile compatibility)
             '-level', '3.1',            # Level 3.1 (widely supported on mobile)
             '-pix_fmt', 'yuv420p',      # Pixel format (required for compatibility)
-            '-movflags', '+faststart',  # Move metadata to beginning (enables streaming)
+            '-movflags', '+faststart',  # Move metadata to beginning (critical for streaming)
             '-tune', 'fastdecode',      # Optimize for fast decoding (mobile)
-            '-g', '30',                 # GOP size (keyframe every 30 frames)
+            '-g', '30',                 # GOP size (keyframe every 30 frames for seeking)
+            '-keyint_min', '30',        # Minimum keyframe interval
+            '-sc_threshold', '0',       # Disable scene change detection for consistent GOP
+            '-an',                      # Remove audio to reduce file size (climbing videos don't need audio)
             '-y',                       # Overwrite output
             temp_path
         ]

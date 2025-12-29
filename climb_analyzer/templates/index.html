@@ -268,7 +268,9 @@
         
         {% if video_url %}
         <h3>Analyzed Video</h3>
-        <video controls id="result-video" preload="auto" playsinline webkit-playsinline style="max-width: 100%;" crossorigin="anonymous">
+        <video controls id="result-video" preload="metadata" playsinline webkit-playsinline 
+               style="max-width: 100%;" crossorigin="anonymous"
+               controlsList="nodownload">
           <source src="{{ video_url }}" type="{{ video_type|default('video/mp4') }}">
           Your browser does not support the video tag.
         </video>

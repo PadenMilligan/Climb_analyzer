@@ -122,32 +122,95 @@ class ClimbingMetricsCalculator:
             right_shoulder = landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
             left_knee = landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE.value]
             right_knee = landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE.value]
+            left_ankle = landmarks.landmark[mp_pose.PoseLandmark.LEFT_ANKLE.value]
+            right_ankle = landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ANKLE.value]
+            
+            # Calculate centers
+            hip_center_x = (left_hip.x + right_hip.x) / 2
+            hip_center_y = (left_hip.y + right_hip.y) / 2
+            shoulder_center_x = (left_shoulder.x + right_shoulder.x) / 2
+            shoulder_center_y = (left_shoulder.y + right_shoulder.y) / 2
             
             # Body angle (torso angle relative to vertical)
-            hip_center_y = (left_hip.y + right_hip.y) / 2
-            shoulder_center_y = (left_shoulder.y + right_shoulder.y) / 2
-            body_angle = abs(np.arctan2(shoulder_center_y - hip_center_y, 
-                                       abs(left_shoulder.x - left_hip.x)))
+            # In MediaPipe: y increases downward, so for vertical body: shoulder_y < hip_y
+            # Calculate angle from vertical (0 = perfectly vertical, π/2 = horizontal)
+            dx = abs(shoulder_center_x - hip_center_x)
+            dy = abs(shoulder_center_y - hip_center_y)
             
-            # Knee bend (good technique uses bent knees for power)
-            left_knee_bend = abs(left_knee.y - left_hip.y)
-            right_knee_bend = abs(right_knee.y - right_hip.y)
-            avg_knee_bend = (left_knee_bend + right_knee_bend) / 2
+            # Avoid division by zero
+            if dx < 0.01:
+                dx = 0.01
             
-            # Technique scoring:
-            # - Body angle: More vertical (closer to wall) = better (0-40 points)
-            body_angle_score = max(0, 40 - (body_angle * 100))
+            # Angle from vertical (in radians)
+            # For vertical body: dy/dx should be large, angle close to π/2
+            # We want to measure deviation from vertical (0 radians = vertical)
+            body_angle_rad = np.arctan2(dx, dy)  # Angle from vertical
             
-            # - Knee bend: Moderate bend is good (0-30 points)
-            knee_bend_score = min(30, avg_knee_bend * 100) if avg_knee_bend < 0.3 else max(0, 30 - (avg_knee_bend - 0.3) * 50)
+            # Convert to degrees for easier thresholding
+            body_angle_deg = np.degrees(body_angle_rad)
             
-            # - Hip position: Lower hips = better technique (0-30 points)
-            hip_height_score = max(0, 30 - (hip_center_y - 0.3) * 100) if hip_center_y > 0.3 else 30
+            # Body angle score: More vertical (smaller angle) = better
+            # 0-15 degrees = excellent (40 points), 15-30 = good (30 points), 30-45 = fair (20 points), >45 = poor (0-10 points)
+            if body_angle_deg <= 15:
+                body_angle_score = 40.0
+            elif body_angle_deg <= 30:
+                body_angle_score = 40.0 - ((body_angle_deg - 15) / 15) * 10  # 40 to 30
+            elif body_angle_deg <= 45:
+                body_angle_score = 30.0 - ((body_angle_deg - 30) / 15) * 10  # 30 to 20
+            else:
+                body_angle_score = max(0, 20.0 - ((body_angle_deg - 45) / 15) * 10)  # 20 to 0
             
-            technique_score = body_angle_score + knee_bend_score + hip_height_score
+            # Knee bend (good technique uses bent knees for power and flexibility)
+            # Calculate leg extension: distance from hip to knee relative to hip to ankle
+            left_leg_length = np.sqrt((left_ankle.x - left_hip.x)**2 + (left_ankle.y - left_hip.y)**2)
+            right_leg_length = np.sqrt((right_ankle.x - right_hip.x)**2 + (right_ankle.y - right_hip.y)**2)
+            avg_leg_length = (left_leg_length + right_leg_length) / 2
+            
+            left_knee_to_hip = np.sqrt((left_knee.x - left_hip.x)**2 + (left_knee.y - left_hip.y)**2)
+            right_knee_to_hip = np.sqrt((right_knee.x - right_hip.x)**2 + (right_knee.y - right_hip.y)**2)
+            avg_knee_to_hip = (left_knee_to_hip + right_knee_to_hip) / 2
+            
+            # Knee bend ratio: higher ratio = more bent (better for technique)
+            # Normalize by leg length to get bend ratio
+            if avg_leg_length > 0.01:
+                knee_bend_ratio = avg_knee_to_hip / avg_leg_length
+            else:
+                knee_bend_ratio = 0.5  # Default moderate bend
+            
+            # Optimal knee bend is around 0.4-0.6 (40-60% of leg length from hip to knee)
+            # Score based on how close to optimal range
+            if 0.35 <= knee_bend_ratio <= 0.65:
+                knee_bend_score = 35.0  # Excellent bend
+            elif 0.25 <= knee_bend_ratio < 0.35 or 0.65 < knee_bend_ratio <= 0.75:
+                knee_bend_score = 30.0 - abs(knee_bend_ratio - 0.5) * 50  # Good bend
+            elif 0.15 <= knee_bend_ratio < 0.25 or 0.75 < knee_bend_ratio <= 0.85:
+                knee_bend_score = 20.0 - abs(knee_bend_ratio - 0.5) * 30  # Fair bend
+            else:
+                knee_bend_score = max(0, 10.0 - abs(knee_bend_ratio - 0.5) * 20)  # Poor bend
+            
+            # Hip-to-wall distance (closer to wall = better technique)
+            # Use the hip-to-wall distance calculation
+            hip_to_wall = self.calculate_hip_to_wall_distance(landmarks, frame_width, frame_height)
+            
+            # Normalize by frame size (typical good distance is < 10% of frame width)
+            normalized_distance = hip_to_wall / frame_width if frame_width > 0 else 0
+            
+            # Score: closer to wall (smaller distance) = better
+            # 0-5% of frame width = excellent (25 points), 5-10% = good (20 points), 10-20% = fair (10 points), >20% = poor (0-5 points)
+            if normalized_distance <= 0.05:
+                hip_distance_score = 25.0
+            elif normalized_distance <= 0.10:
+                hip_distance_score = 25.0 - ((normalized_distance - 0.05) / 0.05) * 5  # 25 to 20
+            elif normalized_distance <= 0.20:
+                hip_distance_score = 20.0 - ((normalized_distance - 0.10) / 0.10) * 10  # 20 to 10
+            else:
+                hip_distance_score = max(0, 10.0 - ((normalized_distance - 0.20) / 0.20) * 10)  # 10 to 0
+            
+            technique_score = body_angle_score + knee_bend_score + hip_distance_score
             return min(100, max(0, technique_score))
-        except:
-            return 50.0
+        except Exception as e:
+            # Return a default score instead of 50 to avoid penalizing on errors
+            return 60.0
     
     def calculate_rhythm(self, current_speed, frame_idx):
         """

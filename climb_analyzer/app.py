@@ -132,20 +132,16 @@ def index():
 @app.route('/static/results/<timestamp>/<filename>')
 def serve_video(timestamp, filename):
     full_path = os.path.abspath(os.path.join(app.config['RESULT_FOLDER'], timestamp, filename))
-    print(f"[DEBUG] Serving file from: {full_path}")
     if not os.path.exists(full_path):
-        print("[ERROR] File does not exist:", full_path)
         return "File not found", 404
     
     # Check file size and verify it's readable
     try:
         file_size = os.path.getsize(full_path)
-        print(f"[DEBUG] File size: {file_size / (1024*1024):.2f} MB")
         
         # For video files, verify they're not still being written
         if filename.endswith(('.mp4', '.avi', '.mov')):
             if file_size == 0:
-                print("[ERROR] Video file is empty")
                 return "Video file is empty", 404
             
             # Try to open the file to ensure it's not locked
@@ -153,7 +149,6 @@ def serve_video(timestamp, filename):
                 with open(full_path, 'rb') as test_file:
                     test_file.read(1)  # Read first byte to verify file is accessible
             except IOError as e:
-                print(f"[ERROR] Cannot read video file (may still be writing): {e}")
                 # Wait a moment and try again
                 time.sleep(0.5)
                 try:
@@ -162,12 +157,11 @@ def serve_video(timestamp, filename):
                 except IOError:
                     return "Video file is not ready", 503  # Service Unavailable
     except OSError as e:
-        print(f"[ERROR] Cannot access file: {e}")
         return "File access error", 500
     
-    # Determine MIME type - MP4 files are assumed to be H.264 for web playback
+    # Determine MIME type
     if filename.endswith('.mp4') or filename.endswith('.mov'):
-        mimetype = 'video/mp4'  # H.264 MP4 is the standard web format
+        mimetype = 'video/mp4'
     elif filename.endswith('.avi'):
         mimetype = 'video/x-msvideo'
     elif filename.endswith('.json'):
@@ -175,16 +169,65 @@ def serve_video(timestamp, filename):
     else:
         mimetype = 'application/octet-stream'
     
-    # Add headers for better video playback support (range requests for seeking)
-    # Use conditional_response=True to support range requests properly
-    response = send_file(full_path, mimetype=mimetype, conditional=True)
+    # Handle range requests for video streaming (critical for mobile playback)
     if filename.endswith(('.mp4', '.avi', '.mov')):
-        response.headers['Accept-Ranges'] = 'bytes'
-        # Add cache headers for better mobile performance
-        response.headers['Cache-Control'] = 'public, max-age=3600'
-        # MP4 files are optimized as H.264 for web/mobile playback
-        # Don't manually set Content-Length - let Flask handle it for range requests
-    return response
+        range_header = request.headers.get('Range', None)
+        if not range_header:
+            # No range request - send full file but with streaming headers
+            response = send_file(full_path, mimetype=mimetype, conditional=True)
+            response.headers['Accept-Ranges'] = 'bytes'
+            response.headers['Cache-Control'] = 'public, max-age=3600'
+            response.headers['Content-Length'] = str(file_size)
+            return response
+        
+        # Parse range header
+        byte_start = 0
+        byte_end = file_size - 1
+        
+        range_match = range_header.replace('bytes=', '').split('-')
+        if range_match[0]:
+            byte_start = int(range_match[0])
+        if range_match[1]:
+            byte_end = int(range_match[1])
+        
+        # Ensure valid range
+        if byte_start >= file_size:
+            return "Range Not Satisfiable", 416
+        if byte_end >= file_size:
+            byte_end = file_size - 1
+        
+        content_length = byte_end - byte_start + 1
+        
+        # Read the requested byte range
+        def generate():
+            with open(full_path, 'rb') as f:
+                f.seek(byte_start)
+                remaining = content_length
+                while remaining:
+                    chunk_size = min(8192, remaining)  # 8KB chunks for better streaming
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+        
+        response = app.response_class(
+            generate(),
+            206,  # Partial Content
+            {
+                'Content-Type': mimetype,
+                'Content-Range': f'bytes {byte_start}-{byte_end}/{file_size}',
+                'Content-Length': str(content_length),
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'public, max-age=3600',
+            },
+            direct_passthrough=True
+        )
+        return response
+    else:
+        # Non-video files - use standard file serving
+        response = send_file(full_path, mimetype=mimetype, conditional=True)
+        return response
 
 
 if __name__ == "__main__":
