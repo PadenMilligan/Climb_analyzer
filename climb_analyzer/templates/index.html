@@ -2,682 +2,1032 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Climb Analyzer - Advanced Metrics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Climb Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
+    :root {
+      --bg: #0f172a;
+      --bg-elevated: #1e293b;
+      --surface: #ffffff;
+      --surface-muted: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-inverse: #f8fafc;
+      --accent: #f97316;
+      --accent-hover: #ea580c;
+      --accent-soft: rgba(249, 115, 22, 0.12);
+      --success: #10b981;
+      --success-bg: #ecfdf5;
+      --error: #ef4444;
+      --error-bg: #fef2f2;
+      --warning: #f59e0b;
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 999px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.12);
+      --font: 'DM Sans', system-ui, -apple-system, sans-serif;
+      --metric-stability: #ec4899;
+      --metric-balance: #3b82f6;
+      --metric-technique: #10b981;
+      --metric-rhythm: #f59e0b;
+      --metric-overall: #8b5cf6;
+      --touch-min: 48px;
     }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 1rem;
-      max-width: 1400px;
-      margin: auto;
-      background: #f5f5f5;
+      margin: 0;
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--text);
+      background: linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #334155 100%);
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
-    /* Mobile optimizations for iPhone */
-    @media (max-width: 768px) {
-      body {
-        padding: 0.5rem;
-      }
-      .container {
-        padding: 1rem;
-      }
-      h1 {
-        font-size: 1.5rem;
-      }
-      .scores-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.5rem;
-      }
-      .score-card {
-        padding: 1rem;
-      }
-      .score-value {
-        font-size: 2rem;
-      }
-      .chart-container {
-        height: 250px;
-      }
-      video {
-        width: 100%;
-        height: auto;
-      }
-      input[type="file"] {
-        font-size: 16px; /* Prevents zoom on iOS */
-      }
+
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1rem 1rem 2.5rem;
     }
-    .container {
-      background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      margin-bottom: 2rem;
+
+    /* Header */
+    .app-header {
+      text-align: center;
+      padding: 1.25rem 0 1.5rem;
+      color: var(--text-inverse);
     }
-    h1 {
-      color: #2c3e50;
-      margin-bottom: 0.5rem;
+
+    .app-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--accent) 0%, #fb923c 100%);
+      border-radius: var(--radius-md);
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.35);
     }
-    h2 {
-      color: #34495e;
-      margin-top: 2rem;
-      margin-bottom: 1rem;
+
+    .app-header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
-    h3 {
-      color: #7f8c8d;
-      margin-top: 1.5rem;
+
+    .app-header .tagline {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      max-width: 320px;
+      margin-inline: auto;
     }
-    .tabs {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      border-bottom: 2px solid #e0e0e0;
-    }
-    .tab {
-      padding: 0.75rem 1.5rem;
-      cursor: pointer;
-      border: none;
-      background: none;
-      font-size: 1rem;
-      color: #7f8c8d;
-      border-bottom: 3px solid transparent;
-      transition: all 0.3s;
-    }
-    .tab.active {
-      color: #3498db;
-      border-bottom-color: #3498db;
-      font-weight: bold;
-    }
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    video {
-      width: 100%;
-      max-width: 100%;
-      margin-top: 1rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    input[type="file"] {
-      margin: 0.5rem 0;
-      padding: 0.5rem;
-      width: 100%;
-      border: 2px dashed #bdc3c7;
-      border-radius: 5px;
-    }
-    button {
-      padding: 0.75rem 1.5rem;
-      font-size: 1rem;
-      background-color: #3498db;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      margin-top: 1rem;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    button:hover {
-      background-color: #2980b9;
-    }
-    button:disabled {
-      background-color: #95a5a6;
-      cursor: not-allowed;
-    }
-    .error {
-      color: #e74c3c;
-      padding: 1rem;
-      background: #fee;
-      border-radius: 5px;
-      margin: 1rem 0;
-    }
-    .success {
-      color: #27ae60;
-      padding: 1rem;
-      background: #efe;
-      border-radius: 5px;
-      margin: 1rem 0;
-    }
-    #progress-container {
-      display: none;
-      margin-top: 20px;
-    }
-    #progress-bar-wrapper {
-      background: #ecf0f1;
-      height: 25px;
-      border-radius: 5px;
+
+    /* Main card shell */
+    .shell {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
       overflow: hidden;
     }
-    #progress-bar {
+
+    .shell-body {
+      padding: 1.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .app { padding: 1.5rem; }
+      .shell-body { padding: 1.75rem; }
+      .app-header h1 { font-size: 1.75rem; }
+    }
+
+    /* Segmented tabs */
+    .tab-switcher {
+      display: flex;
+      gap: 0.35rem;
+      padding: 0.35rem;
+      background: var(--surface-muted);
+      border-radius: var(--radius-full);
+      margin-bottom: 1.25rem;
+    }
+
+    .tab {
+      flex: 1;
+      min-height: var(--touch-min);
+      padding: 0.65rem 0.75rem;
+      border: none;
+      border-radius: var(--radius-full);
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    @media (min-width: 400px) {
+      .tab { font-size: 0.875rem; }
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Alerts */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      padding: 0.9rem 1rem;
+      border-radius: var(--radius-md);
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .alert-icon {
+      flex-shrink: 0;
+      font-size: 1.1rem;
+      line-height: 1.4;
+    }
+
+    .alert-error {
+      background: var(--error-bg);
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .alert-success {
+      background: var(--success-bg);
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    /* Forms & upload */
+    .form-section {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-zone {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 120px;
+      padding: 1.25rem 1rem;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-muted);
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .upload-zone:focus-within {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .upload-zone-icon {
+      font-size: 1.75rem;
+      opacity: 0.7;
+    }
+
+    .upload-zone-text {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    .upload-filename {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      word-break: break-all;
+      max-width: 100%;
+    }
+
+    .form-stack > * + * { margin-top: 1rem; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: var(--touch-min);
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      width: 100%;
+    }
+
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #fb923c 100%);
+      color: white;
+      box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);
+      margin-top: 0.5rem;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--accent-hover) 0%, #f97316 100%);
+    }
+
+    .btn-secondary {
+      background: var(--surface-muted);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-size: 0.875rem;
+      min-height: 44px;
+      padding: 0.5rem 1rem;
+      width: auto;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Progress */
+    .progress-panel {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1rem;
+      background: var(--surface-muted);
+      border-radius: var(--radius-md);
+    }
+
+    .progress-panel.is-visible { display: block; }
+
+    .progress-label {
+      margin: 0 0 0.65rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .progress-track {
+      height: 10px;
+      background: var(--border);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .progress-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #3498db, #2ecc71);
+      background: linear-gradient(90deg, var(--accent), #fbbf24);
+      border-radius: var(--radius-full);
       transition: width 0.3s ease;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-end;
+      padding-right: 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 700;
       color: white;
-      font-weight: bold;
+      min-width: 2.5rem;
     }
+
+    /* Results */
+    .results-section {
+      margin-top: 1.75rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-title {
+      margin: 0 0 0.35rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    .section-subtitle {
+      margin: 0 0 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .panel {
+      background: var(--surface-muted);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .panel-title {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+
+    video {
+      width: 100%;
+      max-width: 100%;
+      border-radius: var(--radius-md);
+      background: #000;
+      display: block;
+    }
+
+    .playback-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      margin-top: 0.85rem;
+    }
+
+    .playback-controls label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      width: 100%;
+    }
+
+    @media (min-width: 480px) {
+      .playback-controls label { width: auto; }
+    }
+
+    .select-control {
+      flex: 1;
+      min-width: 140px;
+      min-height: 44px;
+      padding: 0.5rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 16px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .hint-text {
+      margin: 0.65rem 0 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .hint-text a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .hint-text a:hover { text-decoration: underline; }
+
+    .video-error-msg {
+      color: var(--error);
+      font-size: 0.85rem;
+      margin-top: 0.65rem;
+    }
+
+    .video-error-msg a { color: var(--accent); font-weight: 600; }
+
+    /* Score cards */
     .scores-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin: 2rem 0;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+      margin: 1.25rem 0;
     }
+
+    @media (min-width: 540px) {
+      .scores-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .score-card.overall {
+        grid-column: 1 / -1;
+      }
+    }
+
     .score-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 10px;
+      position: relative;
+      padding: 1rem 0.85rem;
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      border: 1px solid var(--border);
       text-align: center;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
-    .score-card.stability {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+
+    .score-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
     }
-    .score-card.balance {
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    }
-    .score-card.technique {
-      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-    }
-    .score-card.rhythm {
-      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    }
+
+    .score-card.stability::before { background: var(--metric-stability); }
+    .score-card.balance::before { background: var(--metric-balance); }
+    .score-card.technique::before { background: var(--metric-technique); }
+    .score-card.rhythm::before { background: var(--metric-rhythm); }
+    .score-card.overall::before { background: var(--metric-overall); }
+
     .score-card.overall {
-      background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
-      grid-column: 1 / -1;
+      padding: 1.15rem;
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      border: none;
+      color: var(--text-inverse);
     }
-    .score-value {
-      font-size: 3rem;
-      font-weight: bold;
-      margin: 0.5rem 0;
-    }
+
+    .score-card.overall .score-label,
+    .score-card.overall .score-max { color: #94a3b8; }
+
     .score-label {
-      font-size: 1.1rem;
-      opacity: 0.9;
+      font-size: 0.7rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
     }
+
+    .score-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--text);
+    }
+
+    .score-card.overall .score-value {
+      font-size: 2.25rem;
+      color: white;
+    }
+
+    .score-max {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    /* Metrics info */
+    .metrics-info {
+      background: var(--surface-muted);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.1rem;
+      margin: 1rem 0;
+      border: 1px solid var(--border);
+    }
+
+    .metrics-info h4 {
+      margin: 0 0 0.65rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .metrics-info ul {
+      margin: 0;
+      padding-left: 1.15rem;
+    }
+
+    .metrics-info li {
+      margin: 0.45rem 0;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .metrics-info strong { color: var(--text); }
+
+    /* Charts */
+    .chart-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .chart-panel h3 {
+      margin: 0 0 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
     .chart-container {
       position: relative;
-      height: 300px;
-      margin: 2rem 0;
+      height: 260px;
     }
-    .metrics-info {
-      background: #f8f9fa;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin: 1rem 0;
+
+    @media (min-width: 640px) {
+      .chart-container { height: 300px; }
     }
-    .metrics-info h4 {
-      margin-top: 0;
-      color: #2c3e50;
+
+    .chart-message {
+      font-size: 0.875rem;
+      padding: 1rem;
+      border-radius: var(--radius-sm);
     }
-    .metrics-info ul {
-      margin: 0.5rem 0;
-      padding-left: 1.5rem;
-    }
-    .metrics-info li {
-      margin: 0.5rem 0;
-      color: #555;
-    }
+
+    .chart-message.error { color: var(--error); background: var(--error-bg); }
+    .chart-message.warning { color: #b45309; background: #fffbeb; }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>🧗 Climb Analyzer - Advanced Metrics</h1>
-    <p>Upload a climbing video to analyze technique, stability, balance, rhythm, and more!</p>
+  <div class="app">
+    <header class="app-header">
+      <div class="app-logo" aria-hidden="true">CA</div>
+      <h1>Climb Analyzer</h1>
+      <p class="tagline">Upload a climb video and get technique, stability, balance, and rhythm insights.</p>
+    </header>
 
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('single')">Single Video Analysis</button>
-      <button class="tab" onclick="switchTab('dual')">Dual Video Comparison</button>
-    </div>
-
-    {% if error %}
-      <div class="error">{{ error }}</div>
-    {% endif %}
-
-    {% if success %}
-      <div class="success">✅ Analysis complete! View results below.</div>
-    {% endif %}
-
-    <!-- Single Video Analysis Tab -->
-    <div id="single-tab" class="tab-content active">
-      <form method="POST" enctype="multipart/form-data" id="single-form">
-        <input type="hidden" name="analysis_type" value="single">
-        <label><strong>Upload Climbing Video:</strong></label><br>
-        <input type="file" name="video" accept="video/*" required><br>
-        <button type="submit" id="analyze-btn">Analyze Video</button>
-      </form>
-
-      <div id="progress-container">
-        <label>Processing video and calculating metrics...</label>
-        <div id="progress-bar-wrapper">
-          <div id="progress-bar">0%</div>
+    <main class="shell">
+      <div class="shell-body">
+        <div class="tab-switcher" role="tablist" aria-label="Analysis mode">
+          <button type="button" class="tab active" role="tab" aria-selected="true" data-tab="single" onclick="switchTab('single', this)">Single Analysis</button>
+          <button type="button" class="tab" role="tab" aria-selected="false" data-tab="dual" onclick="switchTab('dual', this)">Compare Climbers</button>
         </div>
-      </div>
 
-      {% if success and analysis_type == 'single' %}
-        <h2>📊 Analysis Results</h2>
-        
-        {% if video_url %}
-        <h3>Analyzed Video</h3>
-        <video controls id="result-video" preload="metadata" playsinline webkit-playsinline 
-               style="max-width: 100%;" crossorigin="anonymous"
-               controlsList="nodownload">
-          <source src="{{ video_url }}" type="{{ video_type|default('video/mp4') }}">
-          Your browser does not support the video tag.
-        </video>
-        <div style="margin-top: 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-          <label for="playback-speed" style="font-weight: bold; color: #2c3e50;">Playback Speed:</label>
-          <select id="playback-speed" style="padding: 0.5rem 1rem; border: 2px solid #bdc3c7; border-radius: 5px; font-size: 1rem; background: white; cursor: pointer;">
-            <option value="0.25">0.25x (Slow Motion)</option>
-            <option value="0.5">0.5x (Half Speed)</option>
-            <option value="0.75">0.75x</option>
-            <option value="1" selected>1x (Normal)</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x (Fast)</option>
-          </select>
-          <button id="slow-motion-btn" style="padding: 0.5rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">
-            Toggle Slow Motion (0.5x)
-          </button>
-        </div>
-        <p style="color: #7f8c8d; font-size: 0.9rem; margin-top: 0.5rem;">
-          If the video doesn't play, try downloading it directly: <a href="{{ video_url }}" download>Download Video</a>
-        </p>
-        <script>
-          // Video playback event handlers (always run if video exists)
-          (function() {
-            const video = document.getElementById('result-video');
-            const speedSelect = document.getElementById('playback-speed');
-            const slowMotionBtn = document.getElementById('slow-motion-btn');
-            let isSlowMotion = false;
-            
-            if (video && speedSelect) {
-              // Playback speed control
-              speedSelect.addEventListener('change', function() {
-                const speed = parseFloat(this.value);
-                video.playbackRate = speed;
-                console.log('Playback speed set to:', speed + 'x');
-              });
-              
-              // Slow motion toggle button
-              if (slowMotionBtn) {
-                slowMotionBtn.addEventListener('click', function() {
-                  if (isSlowMotion) {
-                    video.playbackRate = 1.0;
-                    speedSelect.value = '1';
-                    this.textContent = 'Toggle Slow Motion (0.5x)';
-                    isSlowMotion = false;
-                  } else {
-                    video.playbackRate = 0.5;
-                    speedSelect.value = '0.5';
-                    this.textContent = 'Toggle Normal Speed (1x)';
-                    isSlowMotion = true;
-                  }
-                });
-              }
-            }
-            
-            if (video) {
-              // Error handling with detailed error info
-              video.addEventListener('error', function(e) {
-                const error = video.error;
-                let errorMsg = 'Video playback error. ';
-                if (error) {
-                  switch(error.code) {
-                    case error.MEDIA_ERR_ABORTED:
-                      errorMsg += 'Video loading aborted.';
-                      break;
-                    case error.MEDIA_ERR_NETWORK:
-                      errorMsg += 'Network error while loading video.';
-                      break;
-                    case error.MEDIA_ERR_DECODE:
-                      errorMsg += 'Video decoding error. The file may be corrupted or use an unsupported codec.';
-                      break;
-                    case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                      errorMsg += 'Video format not supported by your browser.';
-                      break;
-                    default:
-                      errorMsg += 'Unknown error.';
-                  }
-                  console.error('Video error code:', error.code, 'Message:', errorMsg);
-                }
-                const errorElement = document.createElement('p');
-                errorElement.style.color = '#e74c3c';
-                errorElement.style.marginTop = '10px';
-                errorElement.innerHTML = errorMsg + ' <a href="{{ video_url }}" download style="color: #3498db;">Download video instead</a>';
-                video.parentNode.appendChild(errorElement);
-              });
-              
-              // Metadata loaded
-              video.addEventListener('loadedmetadata', function() {
-                console.log('Video metadata loaded. Duration:', video.duration, 'seconds');
-                console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-                console.log('Video ready state:', video.readyState);
-              });
-              
-              // Can play
-              video.addEventListener('canplay', function() {
-                console.log('Video can start playing');
-              });
-              
-              // Loading progress
-              video.addEventListener('progress', function() {
-                if (video.buffered.length > 0) {
-                  const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-                  const duration = video.duration;
-                  if (duration > 0) {
-                    const percentLoaded = (bufferedEnd / duration) * 100;
-                    console.log('Video buffered:', percentLoaded.toFixed(1) + '%');
+        {% if error %}
+          <div class="alert alert-error" role="alert">
+            <span class="alert-icon" aria-hidden="true">!</span>
+            <span>{{ error }}</span>
+          </div>
+        {% endif %}
+
+        {% if success %}
+          <div class="alert alert-success" role="status">
+            <span class="alert-icon" aria-hidden="true">Done</span>
+            <span>Analysis complete. Scroll down for your results.</span>
+          </div>
+        {% endif %}
+
+        <!-- Single Video Analysis Tab -->
+        <div id="single-tab" class="tab-content active" role="tabpanel">
+          <form method="POST" enctype="multipart/form-data" id="single-form" class="form-stack">
+            <input type="hidden" name="analysis_type" value="single">
+
+            <div class="form-section">
+              <span class="form-label">Climbing video</span>
+              <div class="upload-zone">
+                <span class="upload-zone-icon" aria-hidden="true">Video</span>
+                <p class="upload-zone-text">Tap to choose a video</p>
+                <span class="upload-filename" data-filename-for="video"></span>
+                <input type="file" name="video" accept="video/*" required data-filename-target="video">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="analyze-btn">Analyze Video</button>
+          </form>
+
+          <div class="progress-panel" data-progress-for="single-form">
+            <p class="progress-label">Processing video and calculating metrics...</p>
+            <div class="progress-track">
+              <div class="progress-fill">0%</div>
+            </div>
+          </div>
+
+          {% if success and analysis_type == 'single' %}
+          <section class="results-section" aria-label="Analysis results">
+            <h2 class="section-title">Your results</h2>
+            <p class="section-subtitle">Review your climb, scores, and performance over time.</p>
+
+            {% if video_url %}
+            <div class="panel">
+              <h3 class="panel-title">Analyzed video</h3>
+              <video controls id="result-video" preload="metadata" playsinline webkit-playsinline
+                     crossorigin="anonymous" controlsList="nodownload">
+                <source src="{{ video_url }}" type="{{ video_type|default('video/mp4') }}">
+                Your browser does not support the video tag.
+              </video>
+              <div class="playback-controls">
+                <label for="playback-speed">Playback speed</label>
+                <select id="playback-speed" class="select-control">
+                  <option value="0.25">0.25x Slow</option>
+                  <option value="0.5">0.5x Half</option>
+                  <option value="0.75">0.75x</option>
+                  <option value="1" selected>1x Normal</option>
+                  <option value="1.25">1.25x</option>
+                  <option value="1.5">1.5x</option>
+                  <option value="2">2x Fast</option>
+                </select>
+                <button type="button" id="slow-motion-btn" class="btn btn-secondary">Slow motion (0.5x)</button>
+              </div>
+              <p class="hint-text">
+                Video not playing? <a href="{{ video_url }}" download>Download video</a>
+              </p>
+            </div>
+            <script>
+              (function() {
+                const video = document.getElementById('result-video');
+                const speedSelect = document.getElementById('playback-speed');
+                const slowMotionBtn = document.getElementById('slow-motion-btn');
+                let isSlowMotion = false;
+
+                if (video && speedSelect) {
+                  speedSelect.addEventListener('change', function() {
+                    video.playbackRate = parseFloat(this.value);
+                  });
+
+                  if (slowMotionBtn) {
+                    slowMotionBtn.addEventListener('click', function() {
+                      if (isSlowMotion) {
+                        video.playbackRate = 1.0;
+                        speedSelect.value = '1';
+                        this.textContent = 'Slow motion (0.5x)';
+                        isSlowMotion = false;
+                      } else {
+                        video.playbackRate = 0.5;
+                        speedSelect.value = '0.5';
+                        this.textContent = 'Normal speed (1x)';
+                        isSlowMotion = true;
+                      }
+                    });
                   }
                 }
-              });
-            }
-          })();
-        </script>
-        {% endif %}
-        
-        {% if metrics_data %}
-        
-        <!-- Score Cards -->
-        <div class="scores-grid">
-          <div class="score-card stability">
-            <div class="score-label">Stability</div>
-            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_stability']) }}</div>
-            <div>/ 100</div>
-          </div>
-          <div class="score-card balance">
-            <div class="score-label">Balance</div>
-            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_balance']) }}</div>
-            <div>/ 100</div>
-          </div>
-          <div class="score-card technique">
-            <div class="score-label">Technique</div>
-            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_technique']) }}</div>
-            <div>/ 100</div>
-          </div>
-          <div class="score-card rhythm">
-            <div class="score-label">Rhythm</div>
-            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_rhythm']) }}</div>
-            <div>/ 100</div>
-          </div>
-          <div class="score-card overall">
-            <div class="score-label">Overall Performance Score</div>
-            <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_overall_score']) }}</div>
-            <div>/ 100</div>
-          </div>
-        </div>
 
-        <!-- Metrics Info -->
-        <div class="metrics-info">
-          <h4>📈 Metrics Explained</h4>
-          <ul>
-            <li><strong>Stability:</strong> Measures consistency in hip position and smoothness of movement. Higher scores indicate more stable, controlled climbing.</li>
-            <li><strong>Balance:</strong> Evaluates weight distribution between left and right limbs. Balanced weight distribution improves efficiency.</li>
-            <li><strong>Technique:</strong> Analyzes body angle, knee positioning, and movement efficiency. Proper technique reduces energy expenditure.</li>
-            <li><strong>Rhythm:</strong> Measures consistency in movement timing and patterns. Good rhythm indicates efficient climbing flow.</li>
-            <li><strong>Hip-to-Wall Distance:</strong> Average distance of hips from the wall. Closer positioning generally improves leverage and efficiency.</li>
-          </ul>
-        </div>
-
-        <!-- Charts -->
-        <h3>Real-Time Metrics Over Time</h3>
-        <div class="chart-container">
-          <canvas id="metricsChart"></canvas>
-        </div>
-
-        <h3>Hip-to-Wall Distance Over Time</h3>
-        <div class="chart-container">
-          <canvas id="distanceChart"></canvas>
-        </div>
-
-        <script>
-          // Prepare data for charts
-          try {
-            const metricsData = {{ metrics_data|tojson }};
-            if (!metricsData) {
-              console.error('Metrics data is missing');
-              document.getElementById('metricsChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error: Metrics data not available</p>';
-              document.getElementById('distanceChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error: Metrics data not available</p>';
-            } else {
-              const frameData = metricsData.frame_by_frame || [];
-              
-              if (frameData.length === 0) {
-                console.warn('No frame data available');
-                document.getElementById('metricsChart').parentElement.innerHTML = '<p style="color: #f39c12;">No frame-by-frame data available</p>';
-                document.getElementById('distanceChart').parentElement.innerHTML = '<p style="color: #f39c12;">No frame-by-frame data available</p>';
-              } else {
-                const times = frameData.map(d => d.time);
-                const stability = frameData.map(d => d.stability);
-                const balance = frameData.map(d => d.balance);
-                const technique = frameData.map(d => d.technique);
-                const rhythm = frameData.map(d => d.rhythm);
-                const overall = frameData.map(d => d.overall_score);
-                const hipToWall = frameData.map(d => d.hip_to_wall);
-
-                // Main metrics chart
-                const ctx1 = document.getElementById('metricsChart').getContext('2d');
-                new Chart(ctx1, {
-                  type: 'line',
-                  data: {
-                    labels: times,
-                    datasets: [
-                      {
-                        label: 'Stability',
-                        data: stability,
-                        borderColor: 'rgb(240, 147, 251)',
-                        backgroundColor: 'rgba(240, 147, 251, 0.1)',
-                        tension: 0.4
-                      },
-                      {
-                        label: 'Balance',
-                        data: balance,
-                        borderColor: 'rgb(79, 172, 254)',
-                        backgroundColor: 'rgba(79, 172, 254, 0.1)',
-                        tension: 0.4
-                      },
-                      {
-                        label: 'Technique',
-                        data: technique,
-                        borderColor: 'rgb(67, 233, 123)',
-                        backgroundColor: 'rgba(67, 233, 123, 0.1)',
-                        tension: 0.4
-                      },
-                      {
-                        label: 'Rhythm',
-                        data: rhythm,
-                        borderColor: 'rgb(250, 112, 154)',
-                        backgroundColor: 'rgba(250, 112, 154, 0.1)',
-                        tension: 0.4
-                      },
-                      {
-                        label: 'Overall Score',
-                        data: overall,
-                        borderColor: 'rgb(48, 207, 208)',
-                        backgroundColor: 'rgba(48, 207, 208, 0.1)',
-                        borderWidth: 3,
-                        tension: 0.4
-                      }
-                    ]
-                  },
-                  options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        max: 100,
-                        title: {
-                          display: true,
-                          text: 'Score (0-100)'
-                        }
-                      },
-                      x: {
-                        title: {
-                          display: true,
-                          text: 'Time (seconds)'
-                        }
-                      }
-                    },
-                    plugins: {
-                      legend: {
-                        display: true,
-                        position: 'top'
-                      },
-                      tooltip: {
-                        mode: 'index',
-                        intersect: false
-                      }
+                if (video) {
+                  video.addEventListener('error', function() {
+                    const err = video.error;
+                    let errorMsg = 'Video playback error. ';
+                    if (err) {
+                      const codes = {
+                        [err.MEDIA_ERR_ABORTED]: 'Loading aborted.',
+                        [err.MEDIA_ERR_NETWORK]: 'Network error.',
+                        [err.MEDIA_ERR_DECODE]: 'Decoding error - file may be corrupted.',
+                        [err.MEDIA_ERR_SRC_NOT_SUPPORTED]: 'Format not supported.'
+                      };
+                      errorMsg += codes[err.code] || 'Unknown error.';
                     }
-                  }
-                });
+                    const el = document.createElement('p');
+                    el.className = 'video-error-msg';
+                    el.innerHTML = errorMsg + ' <a href="{{ video_url }}" download>Download instead</a>';
+                    video.parentNode.appendChild(el);
+                  });
+                }
+              })();
+            </script>
+            {% endif %}
 
-                // Hip-to-wall distance chart
-                const ctx2 = document.getElementById('distanceChart').getContext('2d');
-                new Chart(ctx2, {
-                  type: 'line',
-                  data: {
-                    labels: times,
-                    datasets: [{
-                      label: 'Hip-to-Wall Distance (pixels)',
-                      data: hipToWall,
-                      borderColor: 'rgb(255, 165, 0)',
-                      backgroundColor: 'rgba(255, 165, 0, 0.1)',
-                      tension: 0.4,
-                      fill: true
-                    }]
+            {% if metrics_data %}
+            <div class="scores-grid">
+              <div class="score-card stability">
+                <div class="score-label">Stability</div>
+                <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_stability']) }}</div>
+                <div class="score-max">/ 100</div>
+              </div>
+              <div class="score-card balance">
+                <div class="score-label">Balance</div>
+                <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_balance']) }}</div>
+                <div class="score-max">/ 100</div>
+              </div>
+              <div class="score-card technique">
+                <div class="score-label">Technique</div>
+                <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_technique']) }}</div>
+                <div class="score-max">/ 100</div>
+              </div>
+              <div class="score-card rhythm">
+                <div class="score-label">Rhythm</div>
+                <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_rhythm']) }}</div>
+                <div class="score-max">/ 100</div>
+              </div>
+              <div class="score-card overall">
+                <div class="score-label">Overall score</div>
+                <div class="score-value">{{ "%.1f"|format(metrics_data['average_scores']['avg_overall_score']) }}</div>
+                <div class="score-max">/ 100</div>
+              </div>
+            </div>
+
+            <div class="metrics-info">
+              <h4>What these metrics mean</h4>
+              <ul>
+                <li><strong>Stability:</strong> Hip position consistency and movement smoothness.</li>
+                <li><strong>Balance:</strong> Weight distribution across left and right limbs.</li>
+                <li><strong>Technique:</strong> Body angle, knee position, and movement efficiency.</li>
+                <li><strong>Rhythm:</strong> Timing consistency and climbing flow.</li>
+                <li><strong>Hip-to-wall:</strong> Average hip distance from the wall - closer often means better leverage.</li>
+              </ul>
+            </div>
+
+            <div class="chart-panel">
+              <h3>Metrics over time</h3>
+              <div class="chart-container">
+                <canvas id="metricsChart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-panel">
+              <h3>Hip-to-wall distance</h3>
+              <div class="chart-container">
+                <canvas id="distanceChart"></canvas>
+              </div>
+            </div>
+
+            <script>
+              (function() {
+                const chartColors = {
+                  grid: 'rgba(148, 163, 184, 0.2)',
+                  text: '#64748b',
+                  stability: '#ec4899',
+                  balance: '#3b82f6',
+                  technique: '#10b981',
+                  rhythm: '#f59e0b',
+                  overall: '#8b5cf6',
+                  distance: '#f97316'
+                };
+
+                const baseScale = {
+                  grid: { color: chartColors.grid },
+                  ticks: { color: chartColors.text, font: { family: 'DM Sans' } },
+                  title: { color: chartColors.text, font: { family: 'DM Sans', size: 11 } }
+                };
+
+                const basePlugins = {
+                  legend: {
+                    labels: { color: chartColors.text, font: { family: 'DM Sans', size: 11 }, boxWidth: 12, padding: 14 }
                   },
-                  options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        title: {
-                          display: true,
-                          text: 'Distance (pixels)'
-                        }
-                      },
-                      x: {
-                        title: {
-                          display: true,
-                          text: 'Time (seconds)'
-                        }
-                      }
-                    },
-                    plugins: {
-                      legend: {
-                        display: true,
-                        position: 'top'
-                      }
-                    }
+                  tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleFont: { family: 'DM Sans' },
+                    bodyFont: { family: 'DM Sans' },
+                    padding: 10,
+                    cornerRadius: 8
                   }
-                });
-              }
-            }
-          } catch (error) {
-            console.error('Error creating charts:', error);
-            document.getElementById('metricsChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error loading charts: ' + error.message + '</p>';
-            document.getElementById('distanceChart').parentElement.innerHTML = '<p style="color: #e74c3c;">Error loading charts: ' + error.message + '</p>';
-          }
+                };
 
-          // Sync video playback with charts (optional enhancement)
-          const videoForCharts = document.getElementById('result-video');
-          if (videoForCharts) {
-            videoForCharts.addEventListener('timeupdate', function() {
-              const currentTime = videoForCharts.currentTime;
-              // Could highlight current time on charts here
-            });
-          }
-        </script>
-        {% else %}
-        <div class="error">
-          <p>⚠️ Metrics data is missing. The video was processed but metrics could not be loaded.</p>
-          <p>Please check the server logs for more information.</p>
+                function setChartMessage(el, msg, type) {
+                  const container = el.closest('.chart-container');
+                  if (container) {
+                    container.innerHTML = '<p class="chart-message ' + type + '">' + msg + '</p>';
+                  }
+                }
+
+                try {
+                  const metricsData = {{ metrics_data|tojson }};
+                  const metricsCanvas = document.getElementById('metricsChart');
+                  const distanceCanvas = document.getElementById('distanceChart');
+
+                  if (!metricsData) {
+                    setChartMessage(metricsCanvas, 'Metrics data not available.', 'error');
+                    setChartMessage(distanceCanvas, 'Metrics data not available.', 'error');
+                    return;
+                  }
+
+                  const frameData = metricsData.frame_by_frame || [];
+                  if (frameData.length === 0) {
+                    setChartMessage(metricsCanvas, 'No frame-by-frame data available.', 'warning');
+                    setChartMessage(distanceCanvas, 'No frame-by-frame data available.', 'warning');
+                    return;
+                  }
+
+                  const times = frameData.map(d => d.time);
+                  const stability = frameData.map(d => d.stability);
+                  const balance = frameData.map(d => d.balance);
+                  const technique = frameData.map(d => d.technique);
+                  const rhythm = frameData.map(d => d.rhythm);
+                  const overall = frameData.map(d => d.overall_score);
+                  const hipToWall = frameData.map(d => d.hip_to_wall);
+
+                  new Chart(metricsCanvas.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                      labels: times,
+                      datasets: [
+                        { label: 'Stability', data: stability, borderColor: chartColors.stability, backgroundColor: 'rgba(236, 72, 153, 0.08)', borderWidth: 2, tension: 0.35, pointRadius: 0 },
+                        { label: 'Balance', data: balance, borderColor: chartColors.balance, backgroundColor: 'rgba(59, 130, 246, 0.08)', borderWidth: 2, tension: 0.35, pointRadius: 0 },
+                        { label: 'Technique', data: technique, borderColor: chartColors.technique, backgroundColor: 'rgba(16, 185, 129, 0.08)', borderWidth: 2, tension: 0.35, pointRadius: 0 },
+                        { label: 'Rhythm', data: rhythm, borderColor: chartColors.rhythm, backgroundColor: 'rgba(245, 158, 11, 0.08)', borderWidth: 2, tension: 0.35, pointRadius: 0 },
+                        { label: 'Overall', data: overall, borderColor: chartColors.overall, backgroundColor: 'rgba(139, 92, 246, 0.08)', borderWidth: 2.5, tension: 0.35, pointRadius: 0 }
+                      ]
+                    },
+                    options: {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      interaction: { mode: 'index', intersect: false },
+                      scales: {
+                        y: { ...baseScale, beginAtZero: true, max: 100, title: { display: true, text: 'Score (0-100)', ...baseScale.title } },
+                        x: { ...baseScale, title: { display: true, text: 'Time (s)', ...baseScale.title } }
+                      },
+                      plugins: { ...basePlugins, tooltip: { ...basePlugins.tooltip, mode: 'index', intersect: false } }
+                    }
+                  });
+
+                  new Chart(distanceCanvas.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                      labels: times,
+                      datasets: [{
+                        label: 'Hip-to-wall (px)',
+                        data: hipToWall,
+                        borderColor: chartColors.distance,
+                        backgroundColor: 'rgba(249, 115, 22, 0.12)',
+                        borderWidth: 2,
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 0
+                      }]
+                    },
+                    options: {
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      scales: {
+                        y: { ...baseScale, beginAtZero: true, title: { display: true, text: 'Distance (px)', ...baseScale.title } },
+                        x: { ...baseScale, title: { display: true, text: 'Time (s)', ...baseScale.title } }
+                      },
+                      plugins: basePlugins
+                    }
+                  });
+                } catch (error) {
+                  console.error('Error creating charts:', error);
+                  const m = document.getElementById('metricsChart');
+                  const d = document.getElementById('distanceChart');
+                  if (m) setChartMessage(m, 'Error loading charts: ' + error.message, 'error');
+                  if (d) setChartMessage(d, 'Error loading charts: ' + error.message, 'error');
+                }
+              })();
+            </script>
+            {% else %}
+            <div class="alert alert-error" role="alert">
+                <span class="alert-icon" aria-hidden="true">!</span>
+              <span>Metrics could not be loaded. Check server logs for details.</span>
+            </div>
+            {% endif %}
+          </section>
+          {% endif %}
         </div>
-        {% endif %}
-      {% endif %}
-    </div>
 
-    <!-- Dual Video Comparison Tab -->
-    <div id="dual-tab" class="tab-content">
-      <form method="POST" enctype="multipart/form-data" id="dual-form">
-        <input type="hidden" name="analysis_type" value="dual">
-        <label><strong>Climber 1 Video:</strong></label><br>
-        <input type="file" name="video1" accept="video/*" required><br>
+        <!-- Dual Video Comparison Tab -->
+        <div id="dual-tab" class="tab-content" role="tabpanel">
+          <form method="POST" enctype="multipart/form-data" id="dual-form" class="form-stack">
+            <input type="hidden" name="analysis_type" value="dual">
 
-        <label><strong>Climber 2 Video:</strong></label><br>
-        <input type="file" name="video2" accept="video/*" required><br>
+            <div class="form-section">
+              <span class="form-label">Climber 1</span>
+              <div class="upload-zone">
+                <span class="upload-zone-icon" aria-hidden="true">Video</span>
+                <p class="upload-zone-text">Tap to choose video</p>
+                <span class="upload-filename" data-filename-for="video1"></span>
+                <input type="file" name="video1" accept="video/*" required data-filename-target="video1">
+              </div>
+            </div>
 
-        <button type="submit" id="compare-btn">Compare Videos</button>
-      </form>
+            <div class="form-section">
+              <span class="form-label">Climber 2</span>
+              <div class="upload-zone">
+                <span class="upload-zone-icon" aria-hidden="true">Video</span>
+                <p class="upload-zone-text">Tap to choose video</p>
+                <span class="upload-filename" data-filename-for="video2"></span>
+                <input type="file" name="video2" accept="video/*" required data-filename-target="video2">
+              </div>
+            </div>
 
-      <div id="progress-container">
-        <label>Processing videos...</label>
-        <div id="progress-bar-wrapper">
-          <div id="progress-bar">0%</div>
+            <button type="submit" class="btn btn-primary" id="compare-btn">Compare Videos</button>
+          </form>
+
+          <div class="progress-panel" data-progress-for="dual-form">
+            <p class="progress-label">Processing both videos...</p>
+            <div class="progress-track">
+              <div class="progress-fill">0%</div>
+            </div>
+          </div>
+
+          {% if success and analysis_type == 'dual' %}
+          <section class="results-section" aria-label="Comparison results">
+            <h2 class="section-title">Comparison ready</h2>
+            <p class="section-subtitle">Side-by-side output from your two uploads.</p>
+            <div class="panel">
+              <h3 class="panel-title">Comparison video</h3>
+              <video controls playsinline webkit-playsinline>
+                <source src="{{ video_url }}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </section>
+          {% endif %}
         </div>
       </div>
-
-      {% if success and analysis_type == 'dual' %}
-        <h3>✅ Comparison Video</h3>
-        <video controls>
-          <source src="{{ video_url }}" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
-      {% endif %}
-    </div>
+    </main>
   </div>
 
   <script>
-    function switchTab(tabName) {
-      // Hide all tabs
-      document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-      });
+    function switchTab(tabName, buttonEl) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('.tab').forEach(btn => {
         btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
       });
-
-      // Show selected tab
       document.getElementById(tabName + '-tab').classList.add('active');
-      event.target.classList.add('active');
+      if (buttonEl) {
+        buttonEl.classList.add('active');
+        buttonEl.setAttribute('aria-selected', 'true');
+      }
     }
 
-    // Progress bar simulation
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-      form.addEventListener('submit', () => {
-        const container = document.getElementById('progress-container');
-        const bar = document.getElementById('progress-bar');
-        container.style.display = 'block';
-        let width = 0;
+    // Show selected filename in upload zones
+    document.querySelectorAll('.upload-zone input[type="file"]').forEach(input => {
+      input.addEventListener('change', function() {
+        const key = this.getAttribute('data-filename-target');
+        const label = document.querySelector('[data-filename-for="' + key + '"]');
+        if (label) {
+          label.textContent = this.files && this.files[0] ? this.files[0].name : '';
+        }
+      });
+    });
 
+    // Progress bar simulation (scoped per form)
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', function() {
+        const panel = document.querySelector('[data-progress-for="' + form.id + '"]');
+        if (!panel) return;
+        const fill = panel.querySelector('.progress-fill');
+        panel.classList.add('is-visible');
+        let width = 0;
         const interval = setInterval(() => {
           if (width >= 90) {
             clearInterval(interval);
             return;
           }
           width += Math.random() * 5;
-          bar.style.width = width + '%';
-          bar.textContent = Math.round(width) + '%';
+          fill.style.width = width + '%';
+          fill.textContent = Math.round(width) + '%';
         }, 200);
       });
     });
 
-    // Hide progress bar when page loads with results
     {% if success %}
-      document.getElementById('progress-container').style.display = 'none';
-      document.getElementById('progress-bar').style.width = '100%';
-      document.getElementById('progress-bar').textContent = '100%';
+    document.querySelectorAll('.progress-panel').forEach(panel => {
+      panel.classList.remove('is-visible');
+      const fill = panel.querySelector('.progress-fill');
+      if (fill) {
+        fill.style.width = '100%';
+        fill.textContent = '100%';
+      }
+    });
+    {% endif %}
+
+    // Activate correct tab after dual analysis
+    {% if success and analysis_type == 'dual' %}
+    switchTab('dual', document.querySelector('.tab[data-tab="dual"]'));
     {% endif %}
   </script>
 
